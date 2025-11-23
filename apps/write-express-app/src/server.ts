@@ -1,6 +1,6 @@
 import app from "./app";
 import env from "./lib/env";
-import mongo from "./lib/mongo-client";
+import mongoConnection from "./lib/mongo-client";
 
 const server = app.listen(env.PORT, () => {
   console.log(`Server listening on port ${env.PORT}`);
@@ -22,7 +22,7 @@ const gracefulShutdown = async (signal: string) => {
     console.log("HTTP server closed");
 
     try {
-      await mongo.close();
+      await mongoConnection.disconnect();
       console.log("MongoDB connection closed");
       process.exit(0);
     } catch (error) {
