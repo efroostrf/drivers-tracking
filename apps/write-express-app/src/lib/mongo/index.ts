@@ -1,5 +1,5 @@
 import { MongoClient, MongoClientOptions } from "mongodb";
-import env from "./env";
+import env from "../env";
 
 class MongoConnection {
   private client: MongoClient;
@@ -8,10 +8,15 @@ class MongoConnection {
 
   constructor() {
     const options: MongoClientOptions = {
-      maxPoolSize: 10,
-      minPoolSize: 2,
+      maxPoolSize: env.MONGO_MAX_POOL_SIZE,
+      minPoolSize: env.MONGO_MIN_POOL_SIZE,
+      maxIdleTimeMS: 60000,
       serverSelectionTimeoutMS: 5000,
       socketTimeoutMS: 45000,
+      writeConcern: {
+        w: 1,
+        j: false,
+      },
     };
     this.client = new MongoClient(env.MONGO_URI, options);
   }
