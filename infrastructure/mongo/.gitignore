@@ -1,0 +1,5 @@
+# MongoDB data
+mongo
+
+# Environment variables (contains sensitive passwords)
+.env

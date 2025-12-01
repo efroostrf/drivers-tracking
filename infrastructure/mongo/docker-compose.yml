@@ -1,0 +1,51 @@
+services:
+  mongo-primary:
+    image: mongo:8.0
+    container_name: mongo-primary
+    restart: unless-stopped
+    ports:
+      - 27017:27017
+    command: ["--replSet", "rs0", "--keyFile", "/data/keyfile", "--bind_ip_all"]
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - ./mongo/primary/data:/data/db
+      - ./mongo/primary/configdb:/data/configdb
+      - ./mongo/keyfile:/data/keyfile:ro
+
+  mongo-secondary-1:
+    image: mongo:8.0
+    container_name: mongo-secondary-1
+    restart: unless-stopped
+    ports:
+      - 27018:27017
+    command: ["--replSet", "rs0", "--keyFile", "/data/keyfile", "--bind_ip_all"]
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - ./mongo/secondary1/data:/data/db
+      - ./mongo/secondary1/configdb:/data/configdb
+      - ./mongo/keyfile:/data/keyfile:ro
+
+  mongo-secondary-2:
+    image: mongo:8.0
+    container_name: mongo-secondary-2
+    restart: unless-stopped
+    ports:
+      - 27019:27017
+    command: ["--replSet", "rs0", "--keyFile", "/data/keyfile", "--bind_ip_all"]
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - ./mongo/secondary2/data:/data/db
+      - ./mongo/secondary2/configdb:/data/configdb
+      - ./mongo/keyfile:/data/keyfile:ro
