@@ -1,7 +1,7 @@
 services:
-  mongo-primary:
+  mongo-1:
     image: mongo:8.0
-    container_name: mongo-primary
+    container_name: mongo-1
     restart: unless-stopped
     ports:
       - 27017:27017
@@ -12,13 +12,13 @@ services:
       timeout: 5s
       retries: 5
     volumes:
-      - ./mongo/primary/data:/data/db
-      - ./mongo/primary/configdb:/data/configdb
+      - ./mongo/node1/data:/data/db
+      - ./mongo/node1/configdb:/data/configdb
       - ./mongo/keyfile:/data/keyfile:ro
 
-  mongo-secondary-1:
+  mongo-2:
     image: mongo:8.0
-    container_name: mongo-secondary-1
+    container_name: mongo-2
     restart: unless-stopped
     ports:
       - 27018:27017
@@ -29,13 +29,13 @@ services:
       timeout: 5s
       retries: 5
     volumes:
-      - ./mongo/secondary1/data:/data/db
-      - ./mongo/secondary1/configdb:/data/configdb
+      - ./mongo/node2/data:/data/db
+      - ./mongo/node2/configdb:/data/configdb
       - ./mongo/keyfile:/data/keyfile:ro
 
-  mongo-secondary-2:
+  mongo-3:
     image: mongo:8.0
-    container_name: mongo-secondary-2
+    container_name: mongo-3
     restart: unless-stopped
     ports:
       - 27019:27017
@@ -46,6 +46,6 @@ services:
       timeout: 5s
       retries: 5
     volumes:
-      - ./mongo/secondary2/data:/data/db
-      - ./mongo/secondary2/configdb:/data/configdb
+      - ./mongo/node3/data:/data/db
+      - ./mongo/node3/configdb:/data/configdb
       - ./mongo/keyfile:/data/keyfile:ro

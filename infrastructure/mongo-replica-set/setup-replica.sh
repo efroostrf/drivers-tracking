@@ -94,11 +94,11 @@ print_info "Waiting for containers to be healthy..."
 MAX_WAIT=60
 WAIT_COUNT=0
 while [ $WAIT_COUNT -lt $MAX_WAIT ]; do
-    PRIMARY_HEALTH=$(docker inspect mongo-primary --format='{{.State.Health.Status}}' 2>/dev/null || echo "unknown")
-    SECONDARY1_HEALTH=$(docker inspect mongo-secondary-1 --format='{{.State.Health.Status}}' 2>/dev/null || echo "unknown")
-    SECONDARY2_HEALTH=$(docker inspect mongo-secondary-2 --format='{{.State.Health.Status}}' 2>/dev/null || echo "unknown")
+    MONGO1_HEALTH=$(docker inspect mongo-1 --format='{{.State.Health.Status}}' 2>/dev/null || echo "unknown")
+    MONGO2_HEALTH=$(docker inspect mongo-2 --format='{{.State.Health.Status}}' 2>/dev/null || echo "unknown")
+    MONGO3_HEALTH=$(docker inspect mongo-3 --format='{{.State.Health.Status}}' 2>/dev/null || echo "unknown")
     
-    if [ "$PRIMARY_HEALTH" = "healthy" ] && [ "$SECONDARY1_HEALTH" = "healthy" ] && [ "$SECONDARY2_HEALTH" = "healthy" ]; then
+    if [ "$MONGO1_HEALTH" = "healthy" ] && [ "$MONGO2_HEALTH" = "healthy" ] && [ "$MONGO3_HEALTH" = "healthy" ]; then
         print_success "All containers are healthy"
         break
     fi
@@ -111,9 +111,9 @@ done
 if [ $WAIT_COUNT -ge $MAX_WAIT ]; then
     print_error "Containers did not become healthy in time"
     print_info "Container health status:"
-    echo "  Primary: $PRIMARY_HEALTH"
-    echo "  Secondary-1: $SECONDARY1_HEALTH"
-    echo "  Secondary-2: $SECONDARY2_HEALTH"
+    echo "  mongo-1: $MONGO1_HEALTH"
+    echo "  mongo-2: $MONGO2_HEALTH"
+    echo "  mongo-3: $MONGO3_HEALTH"
     exit 1
 fi
 
@@ -172,7 +172,7 @@ INIT_COMMAND="rs.initiate({
   ]
 })"
 
-docker exec mongo-primary mongosh --quiet --eval "$INIT_COMMAND"
+docker exec mongo-1 mongosh --quiet --eval "$INIT_COMMAND"
 
 if [ $? -ne 0 ]; then
     print_error "Failed to initialize replica set"
@@ -187,7 +187,7 @@ WAIT_COUNT=0
 PRIMARY_FOUND=false
 
 while [ $WAIT_COUNT -lt $MAX_WAIT ]; do
-    RS_STATUS=$(docker exec mongo-primary mongosh --quiet --eval "rs.status().members.find(m => m.state === 1)" 2>/dev/null || echo "")
+    RS_STATUS=$(docker exec mongo-1 mongosh --quiet --eval "rs.status().members.find(m => m.state === 1)" 2>/dev/null || echo "")
     
     if [ -n "$RS_STATUS" ] && [ "$RS_STATUS" != "null" ]; then
         print_success "Primary node established"
@@ -203,7 +203,7 @@ done
 if [ "$PRIMARY_FOUND" = false ]; then
     print_error "Replica set did not stabilize in time"
     print_info "Checking replica set status:"
-    docker exec mongo-primary mongosh --eval "rs.status()"
+    docker exec mongo-1 mongosh --eval "rs.status()"
     exit 1
 fi
 
@@ -213,7 +213,7 @@ sleep 5
 
 # Identify the actual PRIMARY node
 print_info "Identifying PRIMARY node..."
-PRIMARY_HOST=$(docker exec mongo-primary mongosh --quiet --eval "
+PRIMARY_HOST=$(docker exec mongo-1 mongosh --quiet --eval "
   const status = rs.status();
   const primary = status.members.find(m => m.state === 1);
   if (primary) {
@@ -225,7 +225,7 @@ PRIMARY_HOST=$(docker exec mongo-primary mongosh --quiet --eval "
 
 if [ "$PRIMARY_HOST" = "none" ] || [ -z "$PRIMARY_HOST" ]; then
     print_error "Could not identify PRIMARY node"
-    docker exec mongo-primary mongosh --eval "rs.status()"
+    docker exec mongo-1 mongosh --eval "rs.status()"
     exit 1
 fi
 
@@ -234,11 +234,11 @@ print_success "PRIMARY node identified: $PRIMARY_HOST"
 # Determine which container to use based on the port
 PRIMARY_PORT=$(echo "$PRIMARY_HOST" | awk -F: '{print $2}')
 if [ "$PRIMARY_PORT" = "27017" ]; then
-    PRIMARY_CONTAINER="mongo-primary"
+    PRIMARY_CONTAINER="mongo-1"
 elif [ "$PRIMARY_PORT" = "27018" ]; then
-    PRIMARY_CONTAINER="mongo-secondary-1"
+    PRIMARY_CONTAINER="mongo-2"
 elif [ "$PRIMARY_PORT" = "27019" ]; then
-    PRIMARY_CONTAINER="mongo-secondary-2"
+    PRIMARY_CONTAINER="mongo-3"
 else
     print_error "Unknown PRIMARY port: $PRIMARY_PORT"
     exit 1
@@ -316,9 +316,9 @@ print_header "Setup Complete!"
 echo -e "${GREEN}MongoDB Replica Set Configuration:${NC}"
 echo "  Replica Set Name: rs0"
 echo "  Current PRIMARY: ${PRIMARY_HOST} (container: ${PRIMARY_CONTAINER})"
-echo "  Node 1: ${SELECTED_IP}:27017 (mongo-primary)"
-echo "  Node 2: ${SELECTED_IP}:27018 (mongo-secondary-1)"
-echo "  Node 3: ${SELECTED_IP}:27019 (mongo-secondary-2)"
+echo "  Node 1: ${SELECTED_IP}:27017 (mongo-1)"
+echo "  Node 2: ${SELECTED_IP}:27018 (mongo-2)"
+echo "  Node 3: ${SELECTED_IP}:27019 (mongo-3)"
 echo ""
 echo -e "${GREEN}User Accounts:${NC}"
 echo "  Admin User: admin (userAdminAnyDatabase, clusterAdmin)"
@@ -338,4 +338,3 @@ echo "  2. Replace YOUR_APP_PASSWORD with the actual password from infrastructur
 echo "  3. Test the connection from your application"
 echo ""
 print_success "MongoDB replica set is ready for use!"
-

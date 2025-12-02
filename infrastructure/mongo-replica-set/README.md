@@ -16,17 +16,20 @@ The MongoDB deployment consists of three instances configured as a replica set n
 ## Quick Start
 
 1. Create environment configuration:
+
    ```bash
    cp .env.example .env
    ```
 
 2. Edit `.env` and set secure passwords:
+
    ```
    MONGO_ADMIN_PASSWORD=<your-secure-admin-password>
    MONGO_APP_PASSWORD=<your-secure-application-password>
    ```
 
 3. Run the setup script:
+
    ```bash
    ./setup-replica.sh
    ```
@@ -46,9 +49,9 @@ mongo/
 ├── setup-replica.sh         # Automated setup script
 └── mongo/                   # MongoDB data directory (created during setup)
     ├── keyfile              # Replica set authentication keyfile
-    ├── primary/             # Primary node data
-    ├── secondary1/          # Secondary node 1 data
-    └── secondary2/          # Secondary node 2 data
+    ├── node1/               # mongo-1 node data
+    ├── node2/               # mongo-2 node data
+    └── node3/               # mongo-3 node data
 ```
 
 ## Architecture
@@ -57,13 +60,13 @@ mongo/
 
 Three MongoDB 8.0 instances are deployed as Docker containers:
 
-| Container Name      | Port  | Role                |
-|---------------------|-------|---------------------|
-| mongo-primary       | 27017 | Replica set member  |
-| mongo-secondary-1   | 27018 | Replica set member  |
-| mongo-secondary-2   | 27019 | Replica set member  |
+| Container Name | Port  | Role               |
+| -------------- | ----- | ------------------ |
+| mongo-1        | 27017 | Replica set member |
+| mongo-2        | 27018 | Replica set member |
+| mongo-3        | 27019 | Replica set member |
 
-**Note:** The PRIMARY role is elected dynamically by the replica set. The container named `mongo-primary` may not always be the PRIMARY node.
+**Note:** The PRIMARY role is elected dynamically by the replica set. Any container can become the PRIMARY node.
 
 ### Replica Set Configuration
 
@@ -78,6 +81,7 @@ The `setup-replica.sh` script automates the complete setup process through six p
 ### Phase 1: Prerequisites Check
 
 Validates the environment configuration:
+
 - Verifies `.env` file exists
 - Loads environment variables
 - Confirms `MONGO_ADMIN_PASSWORD` is set
@@ -88,6 +92,7 @@ If validation fails, the script exits with an error message.
 ### Phase 2: Keyfile & Docker Setup
 
 Prepares the infrastructure:
+
 1. Executes `generate-keyfile.sh` to:
    - Create `mongo/` directory structure if it doesn't exist
    - Generate a 756-byte base64-encoded keyfile
@@ -98,6 +103,7 @@ Prepares the infrastructure:
 ### Phase 3: IP Address Selection
 
 Detects and presents available network interfaces:
+
 - On macOS: Uses `ifconfig` to detect IP addresses
 - On Linux: Uses `hostname -I` to detect IP addresses
 - Filters out loopback (`127.0.0.1`) and Docker bridge (`172.x.x.x`) interfaces
@@ -109,6 +115,7 @@ The selected IP is used to configure the replica set member hostnames.
 ### Phase 4: Replica Set Initialization
 
 Initializes the replica set:
+
 1. Executes `rs.initiate()` command with three members:
    - Member 0: `<selected-ip>:27017`
    - Member 1: `<selected-ip>:27018`
@@ -123,6 +130,7 @@ Initializes the replica set:
 Creates user accounts on the elected PRIMARY node:
 
 1. **Admin User Creation:**
+
    - Username: `admin`
    - Password: From `MONGO_ADMIN_PASSWORD`
    - Database: `admin`
@@ -144,6 +152,7 @@ All user creation commands are executed on the actual PRIMARY node, not assumed 
 ### Phase 6: Verification & Summary
 
 Validates the setup and displays configuration:
+
 1. Tests connection using application user credentials
 2. Displays replica set configuration:
    - Replica set name
@@ -218,23 +227,24 @@ docker compose down
 docker compose logs -f
 
 # Specific container
-docker logs -f mongo-primary
-docker logs -f mongo-secondary-1
-docker logs -f mongo-secondary-2
+docker logs -f mongo-1
+docker logs -f mongo-2
+docker logs -f mongo-3
 ```
 
 ### Checking Replica Set Status
 
 ```bash
-docker exec mongo-primary mongosh -u admin -p <password> --authenticationDatabase admin --eval "rs.status()"
+docker exec mongo-1 mongosh -u admin -p <password> --authenticationDatabase admin --eval "rs.status()"
 ```
 
 ### Data Persistence
 
 MongoDB data is persisted in the `mongo/` directory:
-- `mongo/primary/data` - Primary node data
-- `mongo/secondary1/data` - Secondary node 1 data
-- `mongo/secondary2/data` - Secondary node 2 data
+
+- `mongo/node1/data` - mongo-1 node data
+- `mongo/node2/data` - mongo-2 node data
+- `mongo/node3/data` - mongo-3 node data
 
 To completely reset the replica set, stop the containers and remove the `mongo/` directory, then run `setup-replica.sh` again.
 
@@ -243,6 +253,7 @@ To completely reset the replica set, stop the containers and remove the `mongo/`
 ### Containers Not Healthy
 
 If containers fail to become healthy:
+
 - Check Docker logs: `docker compose logs`
 - Verify keyfile permissions: `ls -l mongo/keyfile` (should be 400)
 - Ensure ports 27017-27019 are not in use
@@ -250,6 +261,7 @@ If containers fail to become healthy:
 ### Replica Set Initialization Fails
 
 If replica set initialization fails:
+
 - Verify network connectivity between containers
 - Check that the selected IP address is accessible
 - Review MongoDB logs for specific errors
@@ -257,6 +269,7 @@ If replica set initialization fails:
 ### User Creation Fails
 
 If user creation fails with "not primary" error:
+
 - The script automatically detects the PRIMARY node
 - Verify the replica set has elected a PRIMARY: `rs.status()`
 - Ensure sufficient time for replica stabilization
@@ -264,6 +277,7 @@ If user creation fails with "not primary" error:
 ### Authentication Errors
 
 If connection fails with authentication errors:
+
 - Verify passwords in `.env` match those used during setup
 - Confirm `authSource=admin` is specified in connection string
 - Check user exists: `db.getUsers()` in admin database
@@ -273,4 +287,3 @@ If connection fails with authentication errors:
 - [MongoDB Replica Set Documentation](https://docs.mongodb.com/manual/replication/)
 - [MongoDB Security Checklist](https://docs.mongodb.com/manual/administration/security-checklist/)
 - [MongoDB Connection String URI Format](https://docs.mongodb.com/manual/reference/connection-string/)
-

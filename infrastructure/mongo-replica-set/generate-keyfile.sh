@@ -11,12 +11,12 @@ echo "Generating MongoDB keyfile..."
 # Create the mongo directory structure if it doesn't exist
 if [ ! -d "$MONGO_DIR" ]; then
   echo "Creating mongo directory structure..."
-  mkdir -p "$MONGO_DIR/primary/data"
-  mkdir -p "$MONGO_DIR/primary/configdb"
-  mkdir -p "$MONGO_DIR/secondary1/data"
-  mkdir -p "$MONGO_DIR/secondary1/configdb"
-  mkdir -p "$MONGO_DIR/secondary2/data"
-  mkdir -p "$MONGO_DIR/secondary2/configdb"
+  mkdir -p "$MONGO_DIR/node1/data"
+  mkdir -p "$MONGO_DIR/node1/configdb"
+  mkdir -p "$MONGO_DIR/node2/data"
+  mkdir -p "$MONGO_DIR/node2/configdb"
+  mkdir -p "$MONGO_DIR/node3/data"
+  mkdir -p "$MONGO_DIR/node3/configdb"
   echo "Directory structure created successfully"
 fi
 
