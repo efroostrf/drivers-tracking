@@ -49,3 +49,42 @@ services:
       - ./mongo/node3/data:/data/db
       - ./mongo/node3/configdb:/data/configdb
       - ./mongo/keyfile:/data/keyfile:ro
+
+  mongo-exporter-1:
+    image: percona/mongodb_exporter:0.47.2
+    container_name: mongo-exporter-1
+    restart: unless-stopped
+    ports:
+      - 9216:9216
+    command:
+      - '--mongodb.uri=mongodb://prometheus:${MONGO_PROMETHEUS_PASSWORD}@mongo-1:27017/?authSource=admin'
+      - '--collect-all'
+    depends_on:
+      mongo-1:
+        condition: service_healthy
+
+  mongo-exporter-2:
+    image: percona/mongodb_exporter:0.47.2
+    container_name: mongo-exporter-2
+    restart: unless-stopped
+    ports:
+      - 9217:9216
+    command:
+      - '--mongodb.uri=mongodb://prometheus:${MONGO_PROMETHEUS_PASSWORD}@mongo-2:27017/?authSource=admin'
+      - '--collect-all'
+    depends_on:
+      mongo-2:
+        condition: service_healthy
+
+  mongo-exporter-3:
+    image: percona/mongodb_exporter:0.47.2
+    container_name: mongo-exporter-3
+    restart: unless-stopped
+    ports:
+      - 9218:9216
+    command:
+      - '--mongodb.uri=mongodb://prometheus:${MONGO_PROMETHEUS_PASSWORD}@mongo-3:27017/?authSource=admin'
+      - '--collect-all'
+    depends_on:
+      mongo-3:
+        condition: service_healthy

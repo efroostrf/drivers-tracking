@@ -26,6 +26,7 @@ The MongoDB deployment consists of three instances configured as a replica set n
    ```
    MONGO_ADMIN_PASSWORD=<your-secure-admin-password>
    MONGO_APP_PASSWORD=<your-secure-application-password>
+   MONGO_PROMETHEUS_PASSWORD=<your-secure-prometheus-password>
    ```
 
 3. Run the setup script:
@@ -60,11 +61,14 @@ mongo/
 
 Three MongoDB 8.0 instances are deployed as Docker containers:
 
-| Container Name | Port  | Role               |
-| -------------- | ----- | ------------------ |
-| mongo-1        | 27017 | Replica set member |
-| mongo-2        | 27018 | Replica set member |
-| mongo-3        | 27019 | Replica set member |
+| Container Name   | Port  | Role                        |
+| ---------------- | ----- | --------------------------- |
+| mongo-1          | 27017 | Replica set member          |
+| mongo-2          | 27018 | Replica set member          |
+| mongo-3          | 27019 | Replica set member          |
+| mongo-exporter-1 | 9216  | Metrics exporter for mongo-1 |
+| mongo-exporter-2 | 9217  | Metrics exporter for mongo-2 |
+| mongo-exporter-3 | 9218  | Metrics exporter for mongo-3 |
 
 **Note:** The PRIMARY role is elected dynamically by the replica set. Any container can become the PRIMARY node.
 
@@ -86,6 +90,7 @@ Validates the environment configuration:
 - Loads environment variables
 - Confirms `MONGO_ADMIN_PASSWORD` is set
 - Confirms `MONGO_APP_PASSWORD` is set
+- Confirms `MONGO_PROMETHEUS_PASSWORD` is set
 
 If validation fails, the script exits with an error message.
 
@@ -147,6 +152,15 @@ Creates user accounts on the elected PRIMARY node:
      - `dbOwner` on `drivers_tracking` database
    - Authentication: Authenticated as `admin` user
 
+3. **Prometheus User Creation:**
+   - Username: `prometheus`
+   - Password: From `MONGO_PROMETHEUS_PASSWORD`
+   - Database: `admin`
+   - Roles:
+     - `clusterMonitor` on `admin` database - Read-only access to cluster monitoring
+     - `read` on `local` database - Read access to replication oplog
+   - Authentication: Authenticated as `admin` user
+
 All user creation commands are executed on the actual PRIMARY node, not assumed on a specific container.
 
 ### Phase 6: Verification & Summary
@@ -182,6 +196,15 @@ Validates the setup and displays configuration:
   - `dbOwner` on `drivers_tracking` - Full access to drivers_tracking database
 - **Use Case:** Application-level database operations
 
+### Prometheus User
+
+- **Username:** `prometheus`
+- **Authentication Database:** `admin`
+- **Roles:**
+  - `clusterMonitor` on `admin` - Read-only access to cluster monitoring data
+  - `read` on `local` - Read access to replication oplog
+- **Use Case:** MongoDB metrics collection for Prometheus monitoring
+
 ## Connection Strings
 
 ### Admin Connection
@@ -196,7 +219,41 @@ mongodb://admin:<password>@<ip>:27017,<ip>:27018,<ip>:27019/?replicaSet=rs0&auth
 mongodb://application:<password>@<ip>:27017,<ip>:27018,<ip>:27019/drivers_tracking?replicaSet=rs0&authSource=admin
 ```
 
+### Prometheus Connection
+
+```
+mongodb://prometheus:<password>@<ip>:27017/?authSource=admin
+```
+
 Replace `<password>` with the respective password from `.env` and `<ip>` with the selected IP address.
+
+## Prometheus Metrics
+
+### MongoDB Exporters
+
+Three Percona MongoDB Exporter instances are deployed, one for each MongoDB node:
+
+| Exporter         | Target Node | Metrics Endpoint              |
+| ---------------- | ----------- | ----------------------------- |
+| mongo-exporter-1 | mongo-1     | http://localhost:9216/metrics |
+| mongo-exporter-2 | mongo-2     | http://localhost:9217/metrics |
+| mongo-exporter-3 | mongo-3     | http://localhost:9218/metrics |
+
+Each exporter uses the `--collect-all` flag to collect all available metrics.
+
+### Prometheus Configuration Example
+
+Add the following scrape configuration to your Prometheus configuration:
+
+```yaml
+scrape_configs:
+  - job_name: 'mongodb'
+    static_configs:
+      - targets:
+          - 'localhost:9216'
+          - 'localhost:9217'
+          - 'localhost:9218'
+```
 
 ## Security Considerations
 
@@ -281,6 +338,21 @@ If connection fails with authentication errors:
 - Verify passwords in `.env` match those used during setup
 - Confirm `authSource=admin` is specified in connection string
 - Check user exists: `db.getUsers()` in admin database
+
+### MongoDB Exporter Issues
+
+If exporters fail to start or show authentication errors:
+
+- Verify `MONGO_PROMETHEUS_PASSWORD` in `.env` matches the password used during setup
+- Check exporter logs: `docker logs mongo-exporter-1`
+- Ensure the prometheus user was created successfully
+- Verify the exporter can reach the MongoDB node: `docker exec mongo-exporter-1 wget -qO- http://localhost:9216/metrics`
+
+If exporters show "connection refused":
+
+- Ensure the corresponding MongoDB container is healthy
+- Check that the exporter's `depends_on` condition is satisfied
+- Verify network connectivity between containers
 
 ## References
 

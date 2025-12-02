@@ -68,6 +68,11 @@ if [ -z "$MONGO_APP_PASSWORD" ]; then
     exit 1
 fi
 
+if [ -z "$MONGO_PROMETHEUS_PASSWORD" ]; then
+    print_error "MONGO_PROMETHEUS_PASSWORD is not set in .env file"
+    exit 1
+fi
+
 print_success "Environment variables loaded successfully"
 
 # Phase 2: Keyfile & Docker Setup
@@ -290,6 +295,30 @@ fi
 
 print_success "Application user created successfully"
 
+print_info "Creating prometheus monitoring user on PRIMARY node..."
+
+PROMETHEUS_USER_COMMAND="db.getSiblingDB('admin').createUser({
+  user: 'prometheus',
+  pwd: '${MONGO_PROMETHEUS_PASSWORD}',
+  roles: [
+    { role: 'clusterMonitor', db: 'admin' },
+    { role: 'read', db: 'local' }
+  ]
+})"
+
+docker exec "$PRIMARY_CONTAINER" mongosh --quiet \
+    -u admin \
+    -p "$MONGO_ADMIN_PASSWORD" \
+    --authenticationDatabase admin \
+    --eval "$PROMETHEUS_USER_COMMAND"
+
+if [ $? -ne 0 ]; then
+    print_error "Failed to create prometheus user"
+    exit 1
+fi
+
+print_success "Prometheus user created successfully"
+
 # Phase 6: Verification & Summary
 print_header "Phase 6: Verification & Summary"
 
@@ -323,6 +352,7 @@ echo ""
 echo -e "${GREEN}User Accounts:${NC}"
 echo "  Admin User: admin (userAdminAnyDatabase, clusterAdmin)"
 echo "  Application User: application (dbOwner on drivers_tracking)"
+echo "  Prometheus User: prometheus (clusterMonitor, read on local)"
 echo ""
 echo -e "${GREEN}Connection Strings:${NC}"
 echo ""
@@ -331,6 +361,14 @@ echo "    mongodb://admin:YOUR_ADMIN_PASSWORD@${SELECTED_IP}:27017,${SELECTED_IP
 echo ""
 echo "  Application Connection:"
 echo "    mongodb://application:YOUR_APP_PASSWORD@${SELECTED_IP}:27017,${SELECTED_IP}:27018,${SELECTED_IP}:27019/drivers_tracking?replicaSet=rs0&authSource=admin"
+echo ""
+echo "  Prometheus Connection:"
+echo "    mongodb://prometheus:YOUR_PROMETHEUS_PASSWORD@${SELECTED_IP}:27017/?authSource=admin"
+echo ""
+echo -e "${GREEN}Prometheus Metrics Endpoints:${NC}"
+echo "  http://localhost:9216/metrics (mongo-1)"
+echo "  http://localhost:9217/metrics (mongo-2)"
+echo "  http://localhost:9218/metrics (mongo-3)"
 echo ""
 echo -e "${YELLOW}Next Steps:${NC}"
 echo "  1. Update your application's .env file with the connection string"
